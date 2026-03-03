@@ -1,0 +1,43 @@
+{
+  "name" : "drug-safety-etl-job",
+  "jobMode" : "SCRIPT",
+  "description" : "",
+  "role" : "arn:aws:iam::024460284291:role/glue-etl-role",
+  "executionProperty" : {
+    "maxConcurrentRuns" : 1
+  },
+  "command" : {
+    "name" : "glueetl",
+    "scriptLocation" : "s3://aws-glue-assets-024460284291-ap-south-1/scripts/drug-safety-etl-job.py",
+    "pythonVersion" : "3"
+  },
+  "defaultArguments" : {
+    "--TARGET_BUCKET" : "drug-safety-pipeline",
+    "--SOURCE_BUCKET" : "drug-safety-pipeline",
+    "--enable-glue-datacatalog" : "true",
+    "--job-bookmark-option" : "job-bookmark-disable",
+    "--TempDir" : "s3://aws-glue-assets-024460284291-ap-south-1/temporary/",
+    "--enable-metrics" : "true",
+    "--enable-spark-ui" : "true",
+    "--spark-event-logs-path" : "s3://aws-glue-assets-024460284291-ap-south-1/sparkHistoryLogs/",
+    "--enable-job-insights" : "true",
+    "--conf" : "spark.eventLog.rolling.enabled=true",
+    "--enable-continuous-cloudwatch-log" : "true",
+    "--job-language" : "python",
+    "--enable-auto-scaling" : "true"
+  },
+  "maxRetries" : 0,
+  "allocatedCapacity" : 2,
+  "timeout" : 30,
+  "maxCapacity" : 2.0,
+  "glueVersion" : "4.0",
+  "numberOfWorkers" : 2,
+  "workerType" : "G.1X",
+  "executionClass" : "STANDARD",
+  "sourceControlDetails" : {
+    "provider" : "GITHUB",
+    "repository" : "drug-safety-etl",
+    "branch" : "main",
+    "folder" : "drug-safety-etl-job"
+  }
+}
