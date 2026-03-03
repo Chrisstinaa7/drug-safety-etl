@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drug Safety Monitor — MedCore</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0e1a;
+    --surface:   #0f1525;
+    --surface2:  #161d30;
+    --border:    #1e2a42;
+    --border2:   #263350;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --dim:       #334155;
+    --critical:  #ef4444;
+    --high:      #f97316;
+    --medium:    #eab308;
+    --low:       #22c55e;
+    --blue:      #3b82f6;
+    --teal:      #14b8a6;
+    --purple:    #a855f7;
+    --glow-r:    rgba(239,68,68,0.15);
+    --glow-o:    rgba(249,115,22,0.15);
+    --glow-b:    rgba(59,130,246,0.12);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* ── Header ─────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 0 20px rgba(239,68,68,0.4);
+  }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .logo-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  .header-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--low);
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2);
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--low); border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:0.5; transform:scale(0.8); }
+  }
+
+  .timestamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* ── Layout ─────────────────────────────── */
+  main { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── KPI Row ─────────────────────────────── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .kpi:hover { transform: translateY(-1px); }
+
+  .kpi.critical { border-top: 2px solid var(--critical); }
+  .kpi.high     { border-top: 2px solid var(--high); }
+  .kpi.medium   { border-top: 2px solid var(--medium); }
+  .kpi.fda      { border-top: 2px solid var(--blue); }
+  .kpi.total    { border-top: 2px solid var(--teal); }
+
+  .kpi-label {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px; font-weight: 800; line-height: 1;
+    margin-bottom: 6px;
+  }
+  .kpi.critical .kpi-value { color: var(--critical); }
+  .kpi.high     .kpi-value { color: var(--high); }
+  .kpi.medium   .kpi-value { color: var(--medium); }
+  .kpi.fda      .kpi-value { color: var(--blue); }
+  .kpi.total    .kpi-value { color: var(--teal); }
+
+  .kpi-sub { font-size: 11px; color: var(--muted); }
+
+  /* Glow effect */
+  .kpi.critical::after { content:''; position:absolute; inset:0; background: var(--glow-r); pointer-events:none; }
+  .kpi.high::after     { content:''; position:absolute; inset:0; background: var(--glow-o); pointer-events:none; }
+  .kpi.fda::after      { content:''; position:absolute; inset:0; background: var(--glow-b); pointer-events:none; }
+
+  /* ── Grid 2-col ─────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+
+  /* ── Panel ──────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2);
+  }
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .panel-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    background: var(--border); padding: 2px 8px; border-radius: 3px;
+  }
+  .panel-body { padding: 16px 18px; }
+
+  /* ── Event Table ─────────────────────────── */
+  .event-table { width: 100%; border-collapse: collapse; }
+  .event-table th {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    text-align: left; padding: 0 10px 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .event-table td {
+    padding: 10px 10px 10px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .event-table tr:last-child td { border-bottom: none; }
+  .event-table tr { transition: background 0.15s; }
+  .event-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .drug-name { font-weight: 500; color: var(--text); }
+  .drug-class {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    background: var(--surface2); padding: 2px 6px;
+    border-radius: 3px; margin-top: 2px; display: inline-block;
+  }
+
+  /* ── Tier Badge ─────────────────────────── */
+  .tier {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 4px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .tier-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+  .tier.CRITICAL { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+  .tier.HIGH     { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+  .tier.MEDIUM   { background: rgba(234,179,8,0.12);  color: #facc15; border: 1px solid rgba(234,179,8,0.25); }
+  .tier.LOW      { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+
+  .tier.CRITICAL .tier-dot { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+  .tier.HIGH     .tier-dot { background: #f97316; box-shadow: 0 0 6px #f97316; }
+  .tier.MEDIUM   .tier-dot { background: #eab308; }
+  .tier.LOW      .tier-dot { background: #22c55e; }
+
+  /* Signal strength */
+  .signal {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 2px 7px; border-radius: 3px;
+  }
+  .signal.STRONG   { color: #f87171; background: rgba(239,68,68,0.1); }
+  .signal.MODERATE { color: #fb923c; background: rgba(249,115,22,0.1); }
+  .signal.WEAK     { color: #facc15; background: rgba(234,179,8,0.1); }
+  .signal.MINIMAL  { color: var(--muted); background: var(--surface2); }
+
+  /* ── Score Bar ──────────────────────────── */
+  .score-cell { display: flex; align-items: center; gap: 8px; }
+  .score-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .score-num {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--text); min-width: 22px; text-align: right;
+  }
+
+  /* ── FDA Table ──────────────────────────── */
+  .deadline-status {
+    font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+  .deadline-status.overdue  { color: #f87171; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2); }
+  .deadline-status.urgent   { color: #fb923c; background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.2); }
+  .deadline-status.upcoming { color: #facc15; background: rgba(234,179,8,0.12);  border: 1px solid rgba(234,179,8,0.2); }
+  .deadline-status.ok       { color: #4ade80; background: rgba(34,197,94,0.12);  border: 1px solid rgba(34,197,94,0.2); }
+
+  /* ── Symptom cloud ─────────────────────── */
+  .symptom-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .symptom-tag {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 4px 10px; border-radius: 4px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); transition: all 0.2s; cursor: default;
+  }
+  .symptom-tag.severe  { border-color: rgba(239,68,68,0.4); color: #f87171; background: rgba(239,68,68,0.08); }
+  .symptom-tag.medium-s{ border-color: rgba(249,115,22,0.4); color: #fb923c; background: rgba(249,115,22,0.08); }
+  .symptom-tag.mild-s  { border-color: rgba(234,179,8,0.3); color: #facc15; background: rgba(234,179,8,0.06); }
+
+  /* ── Bar chart ──────────────────────────── */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-label { font-size: 11px; color: var(--muted); min-width: 110px; text-align: right; }
+  .bar-track { flex: 1; height: 22px; background: var(--border); border-radius: 4px; overflow: hidden; position: relative; }
+  .bar-fill {
+    height: 100%; border-radius: 4px;
+    display: flex; align-items: center; padding-left: 8px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: #fff;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── Donut chart ─────────────────────────── */
+  .donut-wrap { display: flex; align-items: center; gap: 24px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Patient risk table ──────────────────── */
+  .comorbidity-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .comorbidity-row:last-child { border-bottom: none; }
+  .comorbidity-label { font-size: 12px; color: var(--text); }
+  .comorbidity-icons { display: flex; gap: 4px; }
+  .comorb-icon {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+  }
+  .comorb-icon.active { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+  .comorb-icon.inactive { background: var(--surface2); color: var(--dim); border: 1px solid var(--border); }
+
+  /* ── Trend line ─────────────────────────── */
+  .trend-svg { width: 100%; }
+
+  /* ── Pipeline status ─────────────────────── */
+  .pipeline-steps { display: flex; align-items: center; gap: 0; }
+  .pipe-step {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1;
+  }
+  .pipe-node {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; position: relative; z-index: 1;
+  }
+  .pipe-node.done { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); }
+  .pipe-node.active { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); animation: node-pulse 2s infinite; }
+  .pipe-node.pending { background: var(--surface2); border: 1px solid var(--border); }
+  @keyframes node-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+    50%      { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+  }
+  .pipe-label { font-size: 9px; color: var(--muted); text-align: center; letter-spacing: 0.05em; max-width: 60px; }
+  .pipe-connector {
+    flex: 1; height: 1px; background: var(--border);
+    margin-top: -20px; position: relative; z-index: 0;
+  }
+  .pipe-connector.done { background: rgba(34,197,94,0.4); }
+
+  /* ── Stat mini ───────────────────────────── */
+  .mini-stat { display: flex; flex-direction: column; gap: 2px; }
+  .mini-val { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; }
+  .mini-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── Scrollbar ───────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* animate in */
+  .panel { animation: fadeUp 0.4s ease both; }
+  .kpi   { animation: fadeUp 0.3s ease both; }
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(8px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  .kpi:nth-child(1) { animation-delay: 0.05s; }
+  .kpi:nth-child(2) { animation-delay: 0.10s; }
+  .kpi:nth-child(3) { animation-delay: 0.15s; }
+  .kpi:nth-child(4) { animation-delay: 0.20s; }
+  .kpi:nth-child(5) { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">⚕</div>
+    <div>
+      <div class="logo-text">MedCore Safety Monitor</div>
+      <div class="logo-sub">Drug Adverse Event Pipeline · AWS Glue + Athena + Step Functions</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>PIPELINE ACTIVE</div>
+    <div class="timestamp" id="ts"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+    <div class="kpi critical">
+      <div class="kpi-label">Critical Events</div>
+      <div class="kpi-value">2</div>
+      <div class="kpi-sub">Score ≥ 30 · Immediate review</div>
+    </div>
+    <div class="kpi high">
+      <div class="kpi-label">High Risk Events</div>
+      <div class="kpi-value">4</div>
+      <div class="kpi-sub">Score 20–29 · Priority</div>
+    </div>
+    <div class="kpi medium">
+      <div class="kpi-label">Medium Risk</div>
+      <div class="kpi-value">3</div>
+      <div class="kpi-sub">Score 10–19 · Monitor</div>
+    </div>
+    <div class="kpi fda">
+      <div class="kpi-label">FDA Reportable</div>
+      <div class="kpi-value">7</div>
+      <div class="kpi-sub">15-day deadline active</div>
+    </div>
+    <div class="kpi total">
+      <div class="kpi-label">Total Events</div>
+      <div class="kpi-value">10</div>
+      <div class="kpi-sub">8 patients · 8 drugs</div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Events table + Safety Signals -->
+  <div class="grid-2">
+
+    <!-- All events -->
+    <div class="panel" style="animation-delay:0.1s">
+      <div class="panel-header">
+        <span class="panel-title">Adverse Events — Enriched (Silver Layer)</span>
+        <span class="panel-badge">adverse_events_enriched</span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table class="event-table" style="width:100%">
+          <thead>
+            <tr style="padding:0 18px">
+              <th style="padding-left:18px">Drug</th>
+              <th>Patient</th>
+              <th>Symptoms</th>
+              <th>Score</th>
+              <th>Tier</th>
+            </tr>
+          </thead>
+          <tbody id="events-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Safety Signals -->
+    <div class="panel" style="animation-delay:0.15s">
+      <div class="panel-header">
+        <span class="panel-title">Safety Signals (Gold Layer)</span>
+        <span class="panel-badge">safety_signals</span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table class="event-table" style="width:100%">
+          <thead>
+            <tr>
+              <th style="padding-left:18px">Drug</th>
+              <th>Events</th>
+              <th>Deaths</th>
+              <th>Signal</th>
+              <th style="padding-right:18px">Avg Score</th>
+            </tr>
+          </thead>
+          <tbody id="signals-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 3: 3 columns -->
+  <div class="grid-3">
+
+    <!-- FDA deadlines -->
+    <div class="panel" style="animation-delay:0.2s">
+      <div class="panel-header">
+        <span class="panel-title">FDA Reporting Deadlines</span>
+        <span class="panel-badge">fda_reportable_events</span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table class="event-table" style="width:100%">
+          <thead>
+            <tr>
+              <th style="padding-left:18px">Drug</th>
+              <th>Deadline</th>
+              <th>Outcome</th>
+              <th style="padding-right:18px">Status</th>
+            </tr>
+          </thead>
+          <tbody id="fda-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Risk by drug class -->
+    <div class="panel" style="animation-delay:0.25s">
+      <div class="panel-header">
+        <span class="panel-title">Risk by Drug Class</span>
+        <span class="panel-badge">Q4</span>
+      </div>
+      <div class="panel-body">
+        <div class="bar-chart" id="drug-class-chart"></div>
+      </div>
+    </div>
+
+    <!-- Risk tier donut + comorbidities -->
+    <div class="panel" style="animation-delay:0.3s">
+      <div class="panel-header">
+        <span class="panel-title">Risk Distribution</span>
+        <span class="panel-badge">Q1</span>
+      </div>
+      <div class="panel-body">
+        <div class="donut-wrap">
+          <svg width="100" height="100" viewBox="0 0 100 100">
+            <!-- CRITICAL 2/10 = 72deg -->
+            <circle cx="50" cy="50" r="36" fill="none" stroke="#1e2a42" stroke-width="14"/>
+            <circle cx="50" cy="50" r="36" fill="none" stroke="#ef4444" stroke-width="14"
+              stroke-dasharray="22.6 203" stroke-dashoffset="0" stroke-linecap="butt"
+              style="transform:rotate(-90deg);transform-origin:50% 50%"/>
+            <!-- HIGH 4/10 -->
+            <circle cx="50" cy="50" r="36" fill="none" stroke="#f97316" stroke-width="14"
+              stroke-dasharray="45.2 180" stroke-dashoffset="-22.6" stroke-linecap="butt"
+              style="transform:rotate(-90deg);transform-origin:50% 50%"/>
+            <!-- MEDIUM 3/10 -->
+            <circle cx="50" cy="50" r="36" fill="none" stroke="#eab308" stroke-width="14"
+              stroke-dasharray="33.9 192.5" stroke-dashoffset="-67.8" stroke-linecap="butt"
+              style="transform:rotate(-90deg);transform-origin:50% 50%"/>
+            <!-- LOW 1/10 -->
+            <circle cx="50" cy="50" r="36" fill="none" stroke="#22c55e" stroke-width="14"
+              stroke-dasharray="11.3 215" stroke-dashoffset="-101.7" stroke-linecap="butt"
+              style="transform:rotate(-90deg);transform-origin:50% 50%"/>
+            <text x="50" y="47" text-anchor="middle" fill="#e2e8f0" font-family="Syne,sans-serif" font-size="16" font-weight="800">10</text>
+            <text x="50" y="58" text-anchor="middle" fill="#64748b" font-family="Inter,sans-serif" font-size="7">events</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div><span>Critical — 2</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div><span>High — 4</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div><span>Medium — 3</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div><span>Low — 1</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 4: Monthly trend + patient comorbidities + pipeline status -->
+  <div class="grid-3">
+
+    <!-- Monthly trend SVG -->
+    <div class="panel" style="animation-delay:0.3s">
+      <div class="panel-header">
+        <span class="panel-title">Monthly Event Trend</span>
+        <span class="panel-badge">Q6 · monthly_trends</span>
+      </div>
+      <div class="panel-body">
+        <svg class="trend-svg" height="120" id="trend-svg"></svg>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Jan 2024</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Feb 2024</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient comorbidities -->
+    <div class="panel" style="animation-delay:0.35s">
+      <div class="panel-header">
+        <span class="panel-title">High-Risk Patients</span>
+        <span class="panel-badge">Q5 · age 65+</span>
+      </div>
+      <div class="panel-body" id="patients-panel"></div>
+    </div>
+
+    <!-- Pipeline status -->
+    <div class="panel" style="animation-delay:0.4s">
+      <div class="panel-header">
+        <span class="panel-title">Step Functions Pipeline</span>
+        <span class="panel-badge">drug-safety-pipeline</span>
+      </div>
+      <div class="panel-body">
+        <div style="margin-bottom:16px">
+          <div class="pipeline-steps">
+            <div class="pipe-step">
+              <div class="pipe-node done">✓</div>
+              <div class="pipe-label">GLUE ETL</div>
+            </div>
+            <div class="pipe-connector done"></div>
+            <div class="pipe-step">
+              <div class="pipe-node done">✓</div>
+              <div class="pipe-label">REPAIR ×3</div>
+            </div>
+            <div class="pipe-connector done"></div>
+            <div class="pipe-step">
+              <div class="pipe-node done">✓</div>
+              <div class="pipe-label">VALIDATE</div>
+            </div>
+            <div class="pipe-connector done"></div>
+            <div class="pipe-step">
+              <div class="pipe-node done">✓</div>
+              <div class="pipe-label">FDA CHECK</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="mini-stat">
+            <div class="mini-val" style="color:var(--low)">SUCCEEDED</div>
+            <div class="mini-lbl">Last Run Status</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-val" style="color:var(--teal)">3m 42s</div>
+            <div class="mini-lbl">Duration</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-val" style="color:var(--blue)">rate(1hr)</div>
+            <div class="mini-lbl">EventBridge</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-val" style="color:var(--muted)">2 retries</div>
+            <div class="mini-lbl">Glue Backoff</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-family:'DM Mono',monospace">LAST EXECUTION</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)" id="exec-time"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 5: Symptom frequency + top risk scoring breakdown -->
+  <div class="grid-2">
+
+    <!-- Symptom frequency -->
+    <div class="panel" style="animation-delay:0.4s">
+      <div class="panel-header">
+        <span class="panel-title">Symptom Frequency — HIGH/CRITICAL Events</span>
+        <span class="panel-badge">Q7</span>
+      </div>
+      <div class="panel-body">
+        <div class="symptom-list" id="symptom-cloud"></div>
+      </div>
+    </div>
+
+    <!-- Score breakdown for top events -->
+    <div class="panel" style="animation-delay:0.45s">
+      <div class="panel-header">
+        <span class="panel-title">Investigation List</span>
+        <span class="panel-badge">Q8 · requires_investigation = true</span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <table class="event-table" style="width:100%">
+          <thead>
+            <tr>
+              <th style="padding-left:18px">Drug</th>
+              <th>Deaths</th>
+              <th>High Risk</th>
+              <th>Signal</th>
+              <th style="padding-right:18px">Action</th>
+            </tr>
+          </thead>
+          <tbody id="investigation-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+</div>
+
+<script>
+// ── Data (from pipeline output) ───────────────────────────────────────────────
+const events = [
+  { patient_id:2,  drug:"Warfarin",     drug_class:"anticoagulant",     symptoms:"cardiac arrest,chest pain", severity:"life-threatening", outcome:"death",        age:45,  score:47, tier:"CRITICAL", fda:true,  deadline:"2024-02-02" },
+  { patient_id:8,  drug:"Clopidogrel",  drug_class:"antiplatelet",      symptoms:"stroke,paralysis",           severity:"life-threatening", outcome:"death",        age:63,  score:43, tier:"CRITICAL", fda:true,  deadline:"2024-02-25" },
+  { patient_id:7,  drug:"Lisinopril",   drug_class:"ace_inhibitor",     symptoms:"kidney failure,edema",       severity:"severe",           outcome:"hospitalized", age:81,  score:38, tier:"HIGH",     fda:true,  deadline:"2024-02-20" },
+  { patient_id:4,  drug:"Methotrexate", drug_class:"immunosuppressant", symptoms:"liver failure,jaundice",     severity:"severe",           outcome:"hospitalized", age:38,  score:33, tier:"HIGH",     fda:true,  deadline:"2024-02-06" },
+  { patient_id:5,  drug:"Penicillin",   drug_class:"antibiotic",        symptoms:"anaphylaxis,breathing",      severity:"life-threatening", outcome:"recovered",    age:55,  score:29, tier:"HIGH",     fda:true,  deadline:"2024-02-09" },
+  { patient_id:3,  drug:"Methotrexate", drug_class:"immunosuppressant", symptoms:"bleeding,bruising",          severity:"moderate",         outcome:"hospitalized", age:72,  score:28, tier:"HIGH",     fda:true,  deadline:"2024-03-04" },
+  { patient_id:1,  drug:"Lisinopril",   drug_class:"ace_inhibitor",     symptoms:"nausea,vomiting,dizziness",  severity:"moderate",         outcome:"recovered",    age:67,  score:11, tier:"MEDIUM",   fda:false, deadline:null },
+  { patient_id:3,  drug:"Prednisone",   drug_class:"corticosteroid",    symptoms:"rash,itching,swelling",      severity:"mild",             outcome:"recovered",    age:72,  score:10, tier:"MEDIUM",   fda:false, deadline:null },
+  { patient_id:6,  drug:"Sertraline",   drug_class:"ssri",              symptoms:"headache,fatigue",           severity:"mild",             outcome:"recovered",    age:29,  score:10, tier:"MEDIUM",   fda:false, deadline:null },
+  { patient_id:1,  drug:"Metformin",    drug_class:"antidiabetic",      symptoms:"insomnia,anxiety",           severity:"mild",             outcome:"recovered",    age:67,  score:5,  tier:"LOW",      fda:false, deadline:null },
+];
+
+const signals = [
+  { drug:"Warfarin",     drug_class:"anticoagulant",     total:1, deaths:1, high_risk:1, fda_count:1, avg:47.0, signal:"STRONG",   investigate:true  },
+  { drug:"Clopidogrel",  drug_class:"antiplatelet",      total:1, deaths:1, high_risk:1, fda_count:1, avg:43.0, signal:"STRONG",   investigate:true  },
+  { drug:"Lisinopril",   drug_class:"ace_inhibitor",     total:2, deaths:0, high_risk:1, fda_count:1, avg:24.5, signal:"MODERATE", investigate:true  },
+  { drug:"Methotrexate", drug_class:"immunosuppressant", total:2, deaths:0, high_risk:2, fda_count:2, avg:30.5, signal:"MODERATE", investigate:true  },
+  { drug:"Penicillin",   drug_class:"antibiotic",        total:1, deaths:0, high_risk:1, fda_count:1, avg:29.0, signal:"STRONG",   investigate:false },
+  { drug:"Prednisone",   drug_class:"corticosteroid",    total:1, deaths:0, high_risk:0, fda_count:0, avg:10.0, signal:"MINIMAL",  investigate:false },
+  { drug:"Sertraline",   drug_class:"ssri",              total:1, deaths:0, high_risk:0, fda_count:0, avg:10.0, signal:"MINIMAL",  investigate:false },
+  { drug:"Metformin",    drug_class:"antidiabetic",      total:1, deaths:0, high_risk:0, fda_count:0, avg:5.0,  signal:"MINIMAL",  investigate:false },
+];
+
+const drugClassRisk = [
+  { cls:"anticoagulant",     avg:47.0, color:"#ef4444" },
+  { cls:"antiplatelet",      avg:43.0, color:"#f97316" },
+  { cls:"immunosuppressant", avg:30.5, color:"#f97316" },
+  { cls:"antibiotic",        avg:29.0, color:"#eab308" },
+  { cls:"ace_inhibitor",     avg:24.5, color:"#eab308" },
+  { cls:"corticosteroid",    avg:10.0, color:"#22c55e" },
+  { cls:"ssri",              avg:10.0, color:"#22c55e" },
+  { cls:"antidiabetic",      avg:5.0,  color:"#22c55e" },
+];
+
+const highRiskPatients = [
+  { id:7, age:81, gender:"F", diabetes:true, htn:true, kidney:true, drug:"Lisinopril", score:38 },
+  { id:1, age:67, gender:"F", diabetes:true, htn:true, kidney:false, drug:"Lisinopril",  score:11 },
+  { id:3, age:72, gender:"F", diabetes:true, htn:false, kidney:true, drug:"Methotrexate", score:28 },
+  { id:8, age:63, gender:"M", diabetes:false, htn:true, kidney:false, drug:"Clopidogrel", score:43 },
+];
+
+const symptoms_high = [
+  { sym:"cardiac arrest", count:1, sev:"severe" },
+  { sym:"stroke",         count:1, sev:"severe" },
+  { sym:"anaphylaxis",    count:1, sev:"severe" },
+  { sym:"kidney failure", count:2, sev:"severe" },
+  { sym:"liver failure",  count:1, sev:"severe" },
+  { sym:"paralysis",      count:1, sev:"medium-s" },
+  { sym:"bleeding",       count:1, sev:"medium-s" },
+  { sym:"breathing",      count:1, sev:"medium-s" },
+  { sym:"chest pain",     count:1, sev:"medium-s" },
+  { sym:"jaundice",       count:1, sev:"mild-s" },
+  { sym:"bruising",       count:1, sev:"mild-s" },
+  { sym:"edema",          count:1, sev:"mild-s" },
+];
+
+const monthlyTrends = [
+  { month:"2024-01", events:4, deaths:1, high_risk:3 },
+  { month:"2024-02", events:6, deaths:1, high_risk:4 },
+];
+
+// ── Render helpers ────────────────────────────────────────────────────────────
+function tierBadge(tier) {
+  return `<span class="tier ${tier}"><span class="tier-dot"></span>${tier}</span>`;
+}
+function signalBadge(s) {
+  return `<span class="signal ${s}">${s}</span>`;
+}
+function scoreBar(score, maxScore=50) {
+  const pct = Math.min(score / maxScore * 100, 100);
+  const color = score >= 30 ? '#ef4444' : score >= 20 ? '#f97316' : score >= 10 ? '#eab308' : '#22c55e';
+  return `<div class="score-cell">
+    <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%;background:${color}"></div></div>
+    <div class="score-num">${score}</div>
+  </div>`;
+}
+
+// Events table
+const eventsBody = document.getElementById('events-tbody');
+events.forEach(e => {
+  const syms = e.symptoms.split(',').map(s=>s.trim()).slice(0,2).join(', ');
+  eventsBody.innerHTML += `<tr>
+    <td style="padding-left:18px">
+      <div class="drug-name">${e.drug}</div>
+      <div class="drug-class">${e.drug_class}</div>
+    </td>
+    <td>
+      <div style="font-family:'DM Mono',monospace;font-size:11px">P-${e.patient_id}</div>
+      <div style="font-size:10px;color:var(--muted)">Age ${e.age}</div>
+    </td>
+    <td style="font-size:11px;color:var(--muted);max-width:140px">${syms}${e.symptoms.split(',').length>2?'…':''}</td>
+    <td style="min-width:100px">${scoreBar(e.score)}</td>
+    <td>${tierBadge(e.tier)}</td>
+  </tr>`;
+});
+
+// Safety signals table
+const signalsBody = document.getElementById('signals-tbody');
+signals.forEach(s => {
+  signalsBody.innerHTML += `<tr>
+    <td style="padding-left:18px">
+      <div class="drug-name">${s.drug}</div>
+      <div class="drug-class">${s.drug_class}</div>
+    </td>
+    <td style="font-family:'DM Mono',monospace;font-size:12px">${s.total}</td>
+    <td>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:${s.deaths>0?'#f87171':'var(--muted)'}">${s.deaths}</span>
+    </td>
+    <td>${signalBadge(s.signal)}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:12px;padding-right:18px">${s.avg.toFixed(1)}</td>
+  </tr>`;
+});
+
+// FDA deadlines
+const fdaBody = document.getElementById('fda-tbody');
+const fdaEvents = events.filter(e => e.fda);
+fdaEvents.forEach(e => {
+  // For demo, simulate days relative to a "today"
+  const fakeToday = new Date('2024-02-03');
+  const dl = new Date(e.deadline);
+  const days = Math.round((dl - fakeToday) / 86400000);
+  let cls, label;
+  if (days < 0)       { cls='overdue';  label=`${Math.abs(days)}d OVERDUE`; }
+  else if (days <= 3) { cls='urgent';   label=`${days}d left`; }
+  else if (days <= 7) { cls='upcoming'; label=`${days}d left`; }
+  else               { cls='ok';       label=`${days}d left`; }
+
+  fdaBody.innerHTML += `<tr>
+    <td style="padding-left:18px">
+      <div class="drug-name" style="font-size:12px">${e.drug}</div>
+    </td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${e.deadline}</td>
+    <td style="font-size:11px;color:var(--muted)">${e.outcome}</td>
+    <td style="padding-right:18px"><span class="deadline-status ${cls}">${label}</span></td>
+  </tr>`;
+});
+
+// Drug class bar chart
+const chartEl = document.getElementById('drug-class-chart');
+const maxAvg = Math.max(...drugClassRisk.map(d=>d.avg));
+drugClassRisk.forEach(d => {
+  const pct = (d.avg / maxAvg * 100).toFixed(1);
+  chartEl.innerHTML += `<div class="bar-row">
+    <div class="bar-label">${d.cls}</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${pct}%;background:${d.color}">${d.avg.toFixed(1)}</div>
+    </div>
+  </div>`;
+});
+
+// Patient comorbidities
+const patientsEl = document.getElementById('patients-panel');
+highRiskPatients.forEach(p => {
+  patientsEl.innerHTML += `<div class="comorbidity-row">
+    <div>
+      <div class="comorbidity-label">P-${p.id} · Age ${p.age} · ${p.gender} · ${p.drug}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px">score: ${p.score}</div>
+    </div>
+    <div class="comorbidity-icons">
+      <div class="comorb-icon ${p.diabetes?'active':'inactive'}" title="Diabetes">DM</div>
+      <div class="comorb-icon ${p.htn?'active':'inactive'}" title="Hypertension">HTN</div>
+      <div class="comorb-icon ${p.kidney?'active':'inactive'}" title="Kidney Disease">KD</div>
+    </div>
+  </div>`;
+});
+
+// Symptom cloud
+const cloudEl = document.getElementById('symptom-cloud');
+symptoms_high.forEach(s => {
+  cloudEl.innerHTML += `<span class="symptom-tag ${s.sev}" style="font-size:${10+s.count*1}px">${s.sym} <span style="opacity:0.6">${s.count}</span></span>`;
+});
+
+// Investigation table
+const invBody = document.getElementById('investigation-tbody');
+signals.filter(s=>s.investigate).forEach(s => {
+  invBody.innerHTML += `<tr>
+    <td style="padding-left:18px">
+      <div class="drug-name">${s.drug}</div>
+      <div class="drug-class">${s.drug_class}</div>
+    </td>
+    <td style="font-family:'DM Mono',monospace;color:${s.deaths>0?'#f87171':'var(--muted)'}">${s.deaths}</td>
+    <td style="font-family:'DM Mono',monospace;color:${s.high_risk>=2?'#fb923c':'var(--muted)'}">${s.high_risk}</td>
+    <td>${signalBadge(s.signal)}</td>
+    <td style="padding-right:18px">
+      <span style="font-size:10px;color:#f87171;font-family:'DM Mono',monospace">REVIEW NOW</span>
+    </td>
+  </tr>`;
+});
+
+// Monthly trend SVG
+const svg = document.getElementById('trend-svg');
+const W = svg.parentElement.offsetWidth - 36 || 300;
+const H = 120;
+const months = monthlyTrends;
+const maxE = Math.max(...months.map(m=>m.events)) * 1.2;
+
+// Area path for total events
+const pts = months.map((m,i) => {
+  const x = (i / (months.length-1)) * (W-20) + 10;
+  const y = H - 20 - (m.events / maxE) * (H - 30);
+  return [x, y];
+});
+
+// Deaths dots
+const deathPts = months.map((m,i) => {
+  const x = (i / (months.length-1)) * (W-20) + 10;
+  const y = H - 20 - (m.deaths / maxE) * (H - 30);
+  return [x, y, m.deaths];
+});
+
+const pathD = pts.map((p,i)=>(i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(' ');
+const areaD = pathD + ` L${pts[pts.length-1][0]},${H-20} L${pts[0][0]},${H-20} Z`;
+
+svg.setAttribute('width', W);
+svg.innerHTML = `
+  <defs>
+    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Grid lines -->
+  ${[0.25,0.5,0.75,1].map(f=>`<line x1="10" y1="${H-20-(f*(H-30))}" x2="${W-10}" y2="${H-20-(f*(H-30))}" stroke="#1e2a42" stroke-width="1"/>`).join('')}
+  <!-- Area -->
+  <path d="${areaD}" fill="url(#areaGrad)"/>
+  <!-- Line -->
+  <path d="${pathD}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+  <!-- High risk overlay -->
+  <path d="${months.map((m,i)=>{const x=(i/(months.length-1))*(W-20)+10;const y=H-20-(m.high_risk/maxE)*(H-30);return (i===0?`M${x},${y}`:`L${x},${y}`);}).join(' ')}" fill="none" stroke="#f97316" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <!-- Dots -->
+  ${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#3b82f6" stroke="#0a0e1a" stroke-width="2"/>
+    <text x="${p[0]}" y="${p[1]-8}" text-anchor="middle" fill="#94a3b8" font-family="DM Mono,monospace" font-size="10">${months[i].events}</text>`).join('')}
+  <!-- Death dots -->
+  ${deathPts.map((p,i)=>p[2]>0?`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#ef4444" stroke="#0a0e1a" stroke-width="2"/>`:''  ).join('')}
+  <!-- Legend -->
+  <circle cx="12" cy="${H-6}" r="3" fill="#3b82f6"/>
+  <text x="19" y="${H-3}" fill="#64748b" font-family="Inter,sans-serif" font-size="9">Total events</text>
+  <line x1="${W/2-20}" y1="${H-6}" x2="${W/2}" y2="${H-6}" stroke="#f97316" stroke-width="1.5" stroke-dasharray="3,1"/>
+  <text x="${W/2+3}" y="${H-3}" fill="#64748b" font-family="Inter,sans-serif" font-size="9">High risk</text>
+`;
+
+// Timestamp
+function updateTime() {
+  const now = new Date();
+  document.getElementById('ts').textContent = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('exec-time').textContent = `${now.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}  ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
+}
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+</body>
+</html>
